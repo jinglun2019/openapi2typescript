@@ -6,7 +6,7 @@
 
 1. 修改 api 模板(对只有一种入参的情况简化显示)
 2. 新增 swr 模板(配合 swr.js 库)
-3. mock 生成 index 文件方便导出，添加 CJS 和 ES 两种模块风格;schema 中 response.content['application/json']放宽到 response.content[*/*]
+3. mock 生成 index 文件方便导出，添加 CJS 和 ES 两种模块风格;schema 中 response.content['application/json']放宽到 response.content[\*/\*]
 4. 新增一些自定义 mock 规则
 
 ## 参数
