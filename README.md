@@ -27,7 +27,7 @@
 | swrLibPath  | 否 | swr库导入的路径 | string |
 | swrImportStatement  | 否 | 自定义swr表达式 | string |
 | swrName  | 否 | swr生成的文件夹名 | string |
-| mockModuleType  | 否 | 用于生成 mock文件的module风格，默认 ES,  | 'CJS' | 'ES' |
+| mockModuleType  | 否 | 用于生成 mock文件的module风格，默认 'ES'  | 'CJS' \| 'ES' |
 
 ## 示例
 ```ts
