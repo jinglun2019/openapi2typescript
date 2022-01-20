@@ -1,31 +1,14 @@
-## 介绍
-[![GitHub Repo stars](https://img.shields.io/github/stars/chenshuai2144/openapi2typescript?style=social)](https://github.com/chenshuai2144/openapi2typescript)
-[![npm (scoped)](https://img.shields.io/npm/v/@umijs/openapi)](https://www.npmjs.com/package/@umijs/openapi)
-![GitHub tag (latest SemVer pre-release)](https://img.shields.io/github/v/tag/chenshuai2144/openapi2typescript?include_prereleases)
+## 简介
 
-根据 [OpenApi3](https://swagger.io/blog/news/whats-new-in-openapi-3-0/) 文档生成 request 请求代码。
+本项目基于@umijs/openapi 改造，如您不需要这些修改的功能，建议使用[官方原版](https://github.com/chenshuai2144/openapi2typescript)
 
-如果你使用 [umi](https://umijs.org) ,你可以使用[@umijs/plugin-openapi](https://www.npmjs.com/package/@umijs/plugin-openapi) 插件。
-## 使用
-```node
-npm i --save-dev @umijs/openapi
-```
-在项目根目录新建 ```openapi.config.ts```
-```ts
-const { generateService } = require('@umijs/openapi')
+## 修改
 
-generateService({
-  schemaPath: 'http://petstore.swagger.io/v2/swagger.json',
-  serversPath: './servers',
-})
+1. 修改 api 模板(对只有一种入参的情况简化显示)
+2. 新增 swr 模板(配合 swr.js 库)
+3. mock 生成 index 文件方便导出，添加 CJS 和 ES 两种模块风格;schema 中 response.content['application/json']放宽到 response.content[*/*]
+4. 新增一些自定义 mock 规则
 
-```
-在 ```package.json``` 的 ```script``` 中添加 api: ```"openapi": "ts-node openapi.config.ts",```
-
-生成api
-```node
-npm run openapi
-```
 ## 参数
 |  属性   | 必填  | 备注 | 类型 |
 |  ----  | ----  |  ----  |  ----  |
@@ -37,3 +20,24 @@ npm run openapi
 | projectName  | 否 | 项目名称 | string |
 | namespace  | 否 | 命名空间名称 | string |
 | mockFolder  | 否 | mock目录 | string |
+
+## 新增如下配置项
+|  属性   | 必填  | 备注 | 类型 |
+|  ----  | ----  |  ----  |  ----  |
+| swrLibPath  | 否 | swr库导入的路径 | string |
+| swrImportStatement  | 否 | 自定义swr表达式 | string |
+| swrName  | 否 | swr生成的文件夹名 | string |
+| mockModuleType  | 否 | 用于生成 mock文件的module风格，默认 ES,  | 'CJS' | 'ES' |
+
+## 示例
+```ts
+await openAPI.generateService({
+    schemaPath: `${__dirname}/example-files/dorm.json`,
+    requestLibPath: "import http  from '@/request'",
+    swrLibPath: "import useSWR  from '@/libs/swr'",
+    serversPath: './servers',
+    swrName: 'data',
+    mockFolder: './mocks',
+    mockModuleType: 'CJS',
+});
+```

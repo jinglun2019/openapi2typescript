@@ -99,14 +99,33 @@ const getDateByName = (name: string[] | string, parentsKey?: string[]) => {
     return 'authority';
   }
 
+  //自定义规则
+  if (['code'].includes(name)) {
+    return 'code';
+  }
+  if (['msg'].includes(name)) {
+    return 'msg';
+  }
+  if (['buildingName'].includes(name)) {
+    return 'building';
+  }
+
+  if (['floorName'].includes(name)) {
+    return 'floor';
+  }
+
+  if (['roomName'].includes(name)) {
+    return 'room';
+  }
+
   return 'csentence';
 };
 
 function primitive(schemaParams, propsName) {
   const schema = utils.objectify(schemaParams);
   const { type, format } = schema;
-  const value = primitives[`${type}_${format || getDateByName(propsName)}`] || primitives[type];
-
+  // format||getDateByName(propsName)  改成  getDateByName(propsName) || format;
+  const value = primitives[`${type}_${getDateByName(propsName) || format}`] || primitives[type];
   if (typeof schema.example === 'undefined') {
     return value || `Unknown Type: ${schema.type}`;
   }
@@ -186,9 +205,12 @@ class OpenAPIGeneratorMockJs {
         for (const code in api.responses) {
           const response = api.responses[code];
           const schema =
-            response.content &&
-            response.content['application/json'] &&
-            utils.inferSchema(response.content['application/json']);
+            (response.content &&
+              response.content['application/json'] &&
+              utils.inferSchema(response.content['application/json'])) ||
+            (response.content &&
+              response.content['*/*'] &&
+              utils.inferSchema(response.content['*/*']));
 
           if (schema) {
             response.example = schema ? this.sampleFromSchema(schema) : null;

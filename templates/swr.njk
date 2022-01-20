@@ -1,5 +1,8 @@
+
+
 // @ts-ignore
 /* eslint-disable */
+{{ swrImportStatement }}
 {{ requestImportStatement }}
 
 {% for api in list -%}
@@ -54,6 +57,7 @@ files
 {%- endif -%}
 {{ "," if api.body or api.hasParams or api.file }}
   options {{ "?: {[key: string]: any}" if genType === "ts" }}
+  ,swrConfig?
 ) {
   {% if api.params and api.params.path -%}
   const { {% for param in api.params.path %}'{{ param.name }}': {{ param.alias }}, {% endfor %}
@@ -91,9 +95,9 @@ files
   {% endif -%}
 
   {% if api.hasPathVariables or api.hasApiPrefix -%}
-  return http.request{{ ("<" + api.response.type + ">") | safe if genType === "ts" }}(`{{ api.path | safe }}`, {
+  return useSWR{{ ("<" + api.response.type + ">") | safe if genType === "ts" }}(`{{ api.path | safe }}`, {
   {% else -%}
-  return http.request{{ ("<" + api.response.type + ">") | safe if genType === "ts" }}({ url:'{{ api.path }}',
+  return useSWR{{ ("<" + api.response.type + ">") | safe if genType === "ts" }}({ url:'{{ api.path }}',
   {% endif -%}
     method: '{{ api.method | upper }}',
     {%- if api.hasHeader and api.body.mediaType !== "multipart/form-data"%}
@@ -136,7 +140,7 @@ files
     {%- endif %}
     {%- endif %}
     options,
-  });
+  },http.request,swrConfig);
 }
 
 {% endfor -%}

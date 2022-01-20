@@ -1,10 +1,10 @@
 import Mock from 'mockjs';
 import fs from 'fs';
-import {prettierFile, writeFile} from './util';
-import {dirname, join} from 'path';
+import { prettierFile, writeFile } from './util';
+import { dirname, join } from 'path';
 import OpenAPIParserMock from './openAPIParserMock/index';
 import Log from './log';
-import pinyin from "tiny-pinyin";
+import pinyin from 'tiny-pinyin';
 
 Mock.Random.extend({
   country() {
@@ -94,6 +94,27 @@ Mock.Random.extend({
     const id = (Math.random() * href.length).toFixed();
     return href[id];
   },
+  code() {
+    return 1;
+  },
+  msg() {
+    return '请求成功';
+  },
+  building() {
+    const building = ['1栋新宿舍', '2栋新宿舍', '3栋新宿舍', '1栋北宿舍', '2栋西宿舍'];
+    const id = (Math.random() * building.length).toFixed();
+    return building[id];
+  },
+  floor() {
+    const floor = ['1楼', '2楼', '3楼', '4楼', '5楼'];
+    const id = (Math.random() * floor.length).toFixed();
+    return floor[id];
+  },
+  room() {
+    const room = ['102房', '108房', '207房', '602房', '506房'];
+    const id = (Math.random() * room.length).toFixed();
+    return room[id];
+  },
 });
 
 const genMockData = (example: string) => {
@@ -123,7 +144,7 @@ const genMockData = (example: string) => {
     }, {});
 };
 
-const genByTemp = ( {
+const genByTemp = ({
   method,
   path,
   parameters,
@@ -132,7 +153,14 @@ const genByTemp = ( {
 }: {
   method: string;
   path: string;
-  parameters: { name: string, in: string, description: string, required: boolean, schema: {type: string}, example: string}[];
+  parameters: {
+    name: string;
+    in: string;
+    description: string;
+    required: boolean;
+    schema: { type: string };
+    example: string;
+  }[];
   status: string;
   data: string;
 }) => {
@@ -140,30 +168,63 @@ const genByTemp = ( {
     return '';
   }
 
-  let securityPath = path
-  parameters?.forEach(item => {
-    if (item.in === "path"){
-      securityPath = securityPath.replace(`{${item.name}}`, `:${item.name}`)
+  let securityPath = path;
+  parameters?.forEach((item) => {
+    if (item.in === 'path') {
+      securityPath = securityPath.replace(`{${item.name}}`, `:${item.name}`);
     }
-  })
+  });
 
   return `'${method.toUpperCase()} ${securityPath}': (req: Request, res: Response) => {
     res.status(${status}).send(${data});
   }`;
 };
 
-const genMockFiles = (mockFunction: string[]) => {
-  return prettierFile(` 
-// @ts-ignore
-import { Request, Response } from 'express';
+const genMockFiles = (mockFunction: string[], moduleType) => {
+  const CJSTemplate = `
+    // @ts-ignore
+    const { Request, Response } = request('express');
 
-export default {
-${mockFunction.join('\n,')}
-    }`)[0];
+    module.exports = {
+      ${mockFunction.join('\n,')}
+    }
+  `;
+
+  const ESTemplate = ` 
+    // @ts-ignore
+    import { Request, Response } from 'express';
+
+    export default {
+      ${mockFunction.join('\n,')}
+    }`;
+  return prettierFile(moduleType === 'CJS' ? CJSTemplate : ESTemplate)[0];
 };
-export type genMockDataServerConfig = { openAPI: any; mockFolder: string };
 
-const mockGenerator = async ({ openAPI, mockFolder }: genMockDataServerConfig) => {
+const genMockIndexFile = (mockObj, moduleType) => {
+  const files = Object.keys(mockObj);
+  const CJSTemplate = `
+    // @ts-ignore
+    module.defaults = {
+      ${files.map((file) => `...require('./${file}')`).join(',\n')}
+    }
+  `;
+
+  const ESTemplate = ` 
+    // @ts-ignore    
+    ${files.map((file) => `import ${file} from './${file}'`).join('\n')}
+    export default {
+      ${files.map((file) => `...${file}`).join(',\n')}
+    }`;
+  return prettierFile(moduleType === 'CJS' ? CJSTemplate : ESTemplate)[0];
+};
+
+export type genMockDataServerConfig = {
+  openAPI: any;
+  mockFolder: string;
+  mockModuleType?: 'CJS' | 'ES';
+};
+
+const mockGenerator = async ({ openAPI, mockFolder, mockModuleType }: genMockDataServerConfig) => {
   const openAPParse = new OpenAPIParserMock(openAPI);
   const docs = openAPParse.parser();
   const pathList = Object.keys(docs.paths);
@@ -171,6 +232,7 @@ const mockGenerator = async ({ openAPI, mockFolder }: genMockDataServerConfig) =
   const mockActionsObj = {};
   pathList.forEach((path) => {
     const pathConfig = paths[path];
+
     Object.keys(pathConfig).forEach((method) => {
       const methodConfig = pathConfig[method];
       if (methodConfig) {
@@ -180,7 +242,7 @@ const mockGenerator = async ({ openAPI, mockFolder }: genMockDataServerConfig) =
           path.replace('/', '').split('/')[1]
         )?.replace(/[^\w^\s^\u4e00-\u9fa5]/gi, '');
         if (/[\u3220-\uFA29]/.test(conte)) {
-          conte = pinyin.convertToPinyin(conte, '', true)
+          conte = pinyin.convertToPinyin(conte, '', true);
         }
         if (!conte) {
           return;
@@ -212,8 +274,10 @@ const mockGenerator = async ({ openAPI, mockFolder }: genMockDataServerConfig) =
         fs.mkdirSync(dirName);
       }
     }
-    writeFile(mockFolder, `${file}.mock.ts`, genMockFiles(mockActionsObj[file]));
+    writeFile(mockFolder, `${file}.mock.ts`, genMockFiles(mockActionsObj[file], mockModuleType));
   });
+  // 生成index文件
+  writeFile(mockFolder, `index.ts`, genMockIndexFile(mockActionsObj, mockModuleType));
   Log('✅ 生成 mock 文件成功');
 };
 

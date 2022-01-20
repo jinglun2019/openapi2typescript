@@ -23,7 +23,7 @@ import { stripDot, writeFile } from './util';
 
 const BASE_DIRS = ['service', 'services'];
 
-export type TypescriptFileType = 'interface' | 'serviceController' | 'serviceIndex';
+export type TypescriptFileType = 'interface' | 'serviceController' | 'serviceIndex' | 'swr';
 
 export interface APIDataType extends OperationObject {
   path: string;
@@ -335,6 +335,27 @@ class ServiceGenerator {
         },
       );
       prettierError.push(hasError);
+      // 生成swr模板
+      if (this.config.swrName) {
+        const swrPrettierError = [];
+        const swrTemplate = 'swr';
+        const hasSWRError = this.genFileFromTemplate(
+          this.getFinalFileName(`${tp.className}.ts`),
+          swrTemplate,
+          {
+            namespace: this.config.namespace,
+            requestImportStatement: this.config.requestImportStatement,
+            swrImportStatement: this.config.swrImportStatement,
+            disableTypeCheck: false,
+            ...tp,
+          },
+          join(basePath, this.config.swrName),
+        );
+        swrPrettierError.push(hasSWRError);
+        if (swrPrettierError.includes(true)) {
+          Log(`🚥 格式化失败，请检查 swr 文件内可能存在的语法错误`);
+        }
+      }
     });
 
     if (prettierError.includes(true)) {
@@ -494,6 +515,11 @@ class ServiceGenerator {
                 file,
                 hasFormData: formData,
                 response,
+                isOneParam:
+                  finalParams.query &&
+                  // @ts-ignore
+                  !finalParams.query.some((ele) => ele?.schema?.default) &&
+                  !finalParams.query.some((ele) => ele?.isComplexType),
               };
             } catch (error) {
               // eslint-disable-next-line no-console
@@ -510,14 +536,16 @@ class ServiceGenerator {
         if (genParams.length) {
           this.classNameList.push({
             fileName: className,
-            controllerName: className
+            controllerName: className,
           });
         }
+
         return {
           genType: 'ts',
           className,
           instanceName: `${fileName[0].toLowerCase()}${fileName.substr(1)}`,
           list: genParams,
+          projectName: this.config.projectName,
         };
       })
       .filter((ele) => !!ele.list.length);
@@ -635,9 +663,9 @@ class ServiceGenerator {
             const isDirectObject = ((p.schema || {}).type || p.type) === 'object';
             const refList = ((p.schema || {}).$ref || p.$ref || '').split('/');
             const ref = refList[refList.length - 1];
-            const deRefObj = (Object.entries(this.openAPIData.components && this.openAPIData.components.schemas || {}).find(
-              ([k]) => k === ref,
-            ) || []) as any;
+            const deRefObj = (Object.entries(
+              (this.openAPIData.components && this.openAPIData.components.schemas) || {},
+            ).find(([k]) => k === ref) || []) as any;
             const isRefObject = (deRefObj[1] || {}).type === 'object';
             return {
               ...p,
@@ -735,8 +763,8 @@ class ServiceGenerator {
           namespace = `${this.config.namespace}.`;
         }
 
-        if (props.length > 0) {
-          data && data.push([
+        if (props.length > 0 && data) {
+          data.push([
             {
               typeName: resolveTypeName(
                 `${namespace}${
@@ -761,6 +789,7 @@ class ServiceGenerator {
     fileName: string,
     type: TypescriptFileType,
     params: Record<string, any>,
+    finalPath = this.finalPath,
   ): boolean {
     try {
       const template = this.getTemplate(type);
@@ -768,7 +797,7 @@ class ServiceGenerator {
       nunjucks.configure({
         autoescape: false,
       });
-      return writeFile(this.finalPath, fileName, nunjucks.renderString(template, params));
+      return writeFile(finalPath, fileName, nunjucks.renderString(template, params));
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[GenSDK] file gen fail:', fileName, 'type:', type);
@@ -776,7 +805,7 @@ class ServiceGenerator {
     }
   }
 
-  private getTemplate(type: 'interface' | 'serviceController' | 'serviceIndex'): string {
+  private getTemplate(type: TypescriptFileType): string {
     return readFileSync(join(this.config.templatesFolder, `${type}.njk`), 'utf8');
   }
 

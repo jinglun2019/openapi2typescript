@@ -1,5 +1,4 @@
 /* eslint-disable global-require */
-/* eslint-disable import/no-dynamic-require */
 import type { OperationObject } from 'openapi3-ts';
 import fetch from 'node-fetch';
 import converter from 'swagger2openapi';
@@ -12,9 +11,19 @@ const getImportStatement = (requestLibPath: string) => {
     return requestLibPath;
   }
   if (requestLibPath) {
-    return `import request from '${requestLibPath}'`;
+    return `import http from '${requestLibPath}'`;
   }
-  return `import { request } from "umi"`;
+  return `import http from "axios"`;
+};
+
+const getSwrImportStatement = (swrLibPath: string) => {
+  if (swrLibPath && swrLibPath.startsWith('import')) {
+    return swrLibPath;
+  }
+  if (swrLibPath) {
+    return `import useSWR from '${swrLibPath}'`;
+  }
+  return `import useSWR from "swr"`;
 };
 
 export type GenerateServiceProps = {
@@ -58,6 +67,16 @@ export type GenerateServiceProps = {
    * 模板文件的文件路径
    */
   templatesFolder?: string;
+
+  // swr库导入的路径
+  swrLibPath?: string;
+  swrImportStatement?: string;
+
+  // swr生成的文件夹名,
+  swrName?: string;
+
+  // 用于生成mock文件的module风格，默认CJS
+  mockModuleType?: 'CJS' | 'ES';
 };
 
 const converterSwaggerToOpenApi = (swagger: any) => {
@@ -105,14 +124,18 @@ export const generateService = async ({
   requestLibPath,
   schemaPath,
   mockFolder,
+  swrLibPath,
+  mockModuleType,
   ...rest
 }: GenerateServiceProps) => {
   const openAPI = await getOpenAPIConfig(schemaPath);
   const requestImportStatement = getImportStatement(requestLibPath);
+  const swrImportStatement = getSwrImportStatement(swrLibPath);
   const serviceGenerator = new ServiceGenerator(
     {
       namespace: 'API',
       requestImportStatement,
+      swrImportStatement,
       ...rest,
     },
     openAPI,
@@ -123,6 +146,7 @@ export const generateService = async ({
     await mockGenerator({
       openAPI,
       mockFolder: mockFolder || './mocks/',
+      mockModuleType,
     });
   }
 };

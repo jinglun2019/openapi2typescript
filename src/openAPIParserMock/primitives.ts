@@ -27,4 +27,11 @@ export default {
   number_float: '@float(60, 100, 3, 5)',
   integer: '@integer(60, 100)',
   boolean: '@boolean',
+
+  // 自定义规则
+  integer_code: '@code',
+  string_msg: '@msg',
+  string_building: '@building',
+  string_floor: '@floor',
+  string_room: '@room',
 };
